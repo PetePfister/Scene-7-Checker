@@ -48,6 +48,8 @@ struct Scene7CheckerUI: View {
     @State private var dropIsTargeted: Bool = false
     @State private var selectedFilter: FilterOption = .all
     @State private var showClearConfirmation = false
+    @State private var showBatchRenameConfirmation = false
+    @State private var batchRenamePreview: (count: Int, examples: [String]) = (0, [])
     @State private var checkingTask: Task<Void, Never>?
 
     let columns = [
@@ -127,6 +129,53 @@ struct Scene7CheckerUI: View {
                     }
 
                     Button {
+                        batchRenamePreview = viewModel.getBatchRenamePreview()
+                        if batchRenamePreview.count > 0 {
+                            showBatchRenameConfirmation = true
+                        }
+                    } label: {
+                        Label("Rename For Batch Upload", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .buttonStyle(Scene7ButtonStyle(color: .scene7Accent, disabled: viewModel.records.isEmpty))
+                    .disabled(viewModel.records.isEmpty)
+                    .alert("Rename Files for Scene7 Upload", isPresented: $showBatchRenameConfirmation) {
+                        Button("Cancel", role: .cancel) { }
+                        Button("Rename \(batchRenamePreview.count) Files", role: .destructive) {
+                            Task {
+                                let result = await viewModel.batchRenameToScene7Format()
+                                if !result.errors.isEmpty {
+                                    viewModel.errorMessage = "Some files failed to rename: \(result.errors.joined(separator: ", "))"
+                                } else if result.success > 0 {
+                                    viewModel.errorMessage = "Successfully renamed \(result.success) files to Scene7 format"
+                                }
+                            }
+                        }
+                    } message: {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("This will rename \(batchRenamePreview.count) files from underscore to dot format for Scene7 upload:")
+                            
+                            if !batchRenamePreview.examples.isEmpty {
+                                Text("Examples:")
+                                    .font(.headline)
+                                ForEach(batchRenamePreview.examples, id: \.self) { example in
+                                    Text(example)
+                                        .font(.callout.monospaced())
+                                }
+                                
+                                if batchRenamePreview.count > 5 {
+                                    Text("...and \(batchRenamePreview.count - 5) more files")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            Text("This action cannot be undone. Are you sure?")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    Button {
                         showClearConfirmation = true
                     } label: {
                         Label("Clear All", systemImage: "trash")
@@ -175,7 +224,7 @@ struct Scene7CheckerUI: View {
 
                 // Filter and Stats Section - Now always visible
                 HStack {
-                    // Filter dropdown menu
+                    // Filter dropdown menu (bigger fonts/icons)
                     Menu {
                         ForEach(FilterOption.allCases, id: \.self) { option in
                             Button {
@@ -184,29 +233,33 @@ struct Scene7CheckerUI: View {
                                 HStack {
                                     Image(systemName: option.systemImage)
                                         .foregroundColor(option.color)
+                                        .font(.title3) // larger icon in menu items
                                     Text(option.rawValue)
+                                        .font(.headline) // larger text in menu items
                                     if selectedFilter == option {
                                         Spacer()
                                         Image(systemName: "checkmark")
                                             .foregroundColor(.blue)
+                                            .font(.headline)
                                     }
                                 }
+                                .padding(.vertical, 6)
                             }
                         }
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 8) {
                             Image(systemName: selectedFilter.systemImage)
                                 .foregroundColor(selectedFilter.color)
-                                .font(.caption)
+                                .font(.title2) // larger icon on the menu label
                             Text(selectedFilter.rawValue)
                                 .foregroundColor(.primary)
-                                .font(.caption)
+                                .font(.headline) // larger label text
                             Image(systemName: "chevron.down")
                                 .foregroundColor(.secondary)
-                                .font(.caption2)
+                                .font(.title3)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                         .background(Color.scene7CardBg)
                         .cornerRadius(6)
                         .overlay(
@@ -215,48 +268,49 @@ struct Scene7CheckerUI: View {
                         )
                     }
                     .disabled(viewModel.isLoading)
-                    .frame(width: 140) // Fixed smaller width
-                    
-                    Spacer()
-                    
-                    // Stats Display - only show when files are loaded
+                    .frame(width: 260) // Slightly wider to hold menu + nearby stats
+
+                    // Moved: Stats Display to left, next to the dropdown (bigger fonts and icons)
                     if !viewModel.records.isEmpty {
-                        HStack(spacing: 16) {
+                        HStack(spacing: 18) {
                             if filterCounts.existsOnScene7 > 0 {
-                                HStack(spacing: 4) {
+                                HStack(spacing: 8) {
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .foregroundColor(.scene7Orange)
-                                        .font(.caption)
+                                        .font(.title2) // larger icon
                                     Text("\(filterCounts.existsOnScene7)")
                                         .foregroundColor(.scene7Orange)
-                                        .font(.caption.weight(.medium))
+                                        .font(.title3.weight(.bold)) // larger count
                                 }
                             }
                             
                             if filterCounts.errors > 0 {
-                                HStack(spacing: 4) {
+                                HStack(spacing: 8) {
                                     Image(systemName: "xmark.octagon.fill")
                                         .foregroundColor(.scene7Secondary)
-                                        .font(.caption)
+                                        .font(.title2)
                                     Text("\(filterCounts.errors)")
                                         .foregroundColor(.scene7Secondary)
-                                        .font(.caption.weight(.medium))
+                                        .font(.title3.weight(.bold))
                                 }
                             }
                             
                             if filterCounts.namingIssues > 0 {
-                                HStack(spacing: 4) {
+                                HStack(spacing: 8) {
                                     Image(systemName: "textformat.abc")
                                         .foregroundColor(.red)
-                                        .font(.caption)
+                                        .font(.title2)
                                     Text("\(filterCounts.namingIssues)")
                                         .foregroundColor(.red)
-                                        .font(.caption.weight(.medium))
+                                        .font(.title3.weight(.bold))
                                 }
                             }
                         }
+                        .padding(.leading, 8)
                         .transition(.opacity)
                     }
+                    
+                    Spacer()
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 4)
@@ -360,9 +414,10 @@ struct Scene7CheckerUI: View {
     }
 
     var filterCounts: (existsOnScene7: Int, errors: Int, namingIssues: Int) {
-        let existsOnScene7 = viewModel.records.filter { $0.status == .exists }.count
+        // Only count files that exist on Scene7 AND are not marked as OK
+        let existsOnScene7 = viewModel.records.filter { $0.status == .exists && !$0.userMarkedOK }.count
         let errors = viewModel.records.filter { $0.renameError != nil }.count
-        let namingIssues = viewModel.records.filter { $0.namingWarning != nil }.count
+        let namingIssues = viewModel.records.filter { $0.namingWarning != nil || $0.nameSuggestion != nil }.count
         return (existsOnScene7, errors, namingIssues)
     }
 
@@ -384,35 +439,37 @@ struct Scene7CheckerUI: View {
     // MARK: - Filtering Logic
 
     var filteredRecordBindings: [Binding<Scene7ImageRecord>] {
+        // Determine which records to show and produce bindings that point directly at viewModel.records
         let editingIDs: Set<UUID> = Set([focusedRenameID].compactMap { $0 })
         
-        let filteredRecords = viewModel.records.filter { record in
-            // Always show files being edited
+        // Compute the indices in viewModel.records for items that pass the filter (always include any being edited)
+        let filteredIndices: [Int] = viewModel.records.enumerated().compactMap { (offset, record) -> Int? in
             if editingIDs.contains(record.id) {
-                return true
+                return offset
             }
-            
             switch selectedFilter {
             case .all:
-                return true
+                return offset
             case .existsOnScene7:
-                return record.status == .exists
+                // Exclude files that are marked as OK
+                return (record.status == .exists && !record.userMarkedOK) ? offset : nil
             case .errors:
-                return record.renameError != nil
+                return record.renameError != nil ? offset : nil
             case .namingIssues:
-                return record.namingWarning != nil
+                return (record.namingWarning != nil || record.nameSuggestion != nil) ? offset : nil
             case .noIssues:
-                return record.status == .unique && record.renameError == nil && record.namingWarning == nil
+                return (record.status == .unique && record.renameError == nil && record.namingWarning == nil && record.nameSuggestion == nil) ? offset : nil
             }
         }
         
-        return filteredRecords.map { record in
-            Binding(
-                get: { record },
+        // Map indices to bindings that read/write the live array entry
+        return filteredIndices.map { idx in
+            Binding<Scene7ImageRecord>(
+                get: { viewModel.records[idx] },
                 set: { updated in
-                    if let idx = viewModel.records.firstIndex(where: { $0.id == record.id }) {
-                        viewModel.records[idx] = updated
-                    }
+                    // protect against out-of-range (shouldn't happen), but safe-guard
+                    guard viewModel.records.indices.contains(idx) else { return }
+                    viewModel.records[idx] = updated
                 }
             )
         }
@@ -483,7 +540,7 @@ struct RecordCard: View {
                     Image(nsImage: thumbnail)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 48, height: 48)
+                        .frame(width: 52, height: 52)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
                                 .fill(Color.gray.opacity(0.10))
@@ -493,11 +550,11 @@ struct RecordCard: View {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(Color.gray.opacity(0.10))
-                            .frame(width: 48, height: 48)
+                            .frame(width: 52, height: 52)
                         Image(systemName: "photo")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 24, height: 24)
+                            .frame(width: 26, height: 26)
                             .foregroundColor(.scene7Primary)
                     }
                 }
@@ -508,13 +565,47 @@ struct RecordCard: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     if record.status == .exists {
-                        Text("Image already exists")
-                            .font(.caption)
-                            .foregroundColor(.scene7Orange)
-                            .padding(.top, 2)
+                        HStack(spacing: 6) {
+                            Text(record.userMarkedOK ? "Marked OK - Will be overwritten" : "Image already exists")
+                                .font(.subheadline)
+                                .foregroundColor(record.userMarkedOK ? .scene7Green : .scene7Orange)
+                                .padding(.top, 2)
+                            
+                            if record.userMarkedOK {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.scene7Green)
+                                    .font(.subheadline)
+                            }
+                        }
                     }
                 }
                 Spacer()
+                
+                // Add "Mark as OK" button when status is .exists
+                if record.status == .exists {
+                    Button {
+                        viewModel.toggleMarkedOK(recordID: record.id)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: record.userMarkedOK ? "xmark.circle" : "checkmark.circle")
+                                .font(.body)
+                            Text(record.userMarkedOK ? "Unmark" : "Mark OK")
+                                .font(.caption)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(record.userMarkedOK ? Color.scene7Secondary.opacity(0.1) : Color.scene7Green.opacity(0.1))
+                        .foregroundColor(record.userMarkedOK ? .scene7Secondary : .scene7Green)
+                        .cornerRadius(6)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(record.userMarkedOK ? Color.scene7Secondary.opacity(0.3) : Color.scene7Green.opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .help(record.userMarkedOK ? "Unmark this file - it will appear in warnings again" : "Mark this file as OK to overwrite on Scene7")
+                }
+                
                 statusBadge(for: record.status)
                     .padding(.trailing, 2)
                 // --- Delete Button ---
@@ -523,6 +614,7 @@ struct RecordCard: View {
                 } label: {
                     Image(systemName: "trash")
                         .foregroundColor(.scene7Secondary)
+                        .font(.title3)
                 }
                 .buttonStyle(.plain)
                 .help("Delete this file from disk and remove from list")
@@ -538,6 +630,51 @@ struct RecordCard: View {
                         secondaryButton: .cancel()
                     )
                 }
+            }
+
+            // --- Name Suggestion Banner (much larger text for visibility) ---
+            if let suggestion = record.nameSuggestion {
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "lightbulb.fill")
+                            .foregroundColor(.scene7Accent)
+                            .font(.title2)
+                        Text("Suggestion: \(suggestion.suggestedName)")
+                            .font(.title3.weight(.semibold)) // increased size
+                            .foregroundColor(.scene7Primary)
+                        Spacer()
+                    }
+                    
+                    HStack(spacing: 8) {
+                        // Explanatory text removed per request (no suggestion.reason displayed)
+                        Spacer()
+                        
+                        Button("Accept") {
+                            viewModel.applyNameSuggestion(recordID: record.id)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.regular)
+                        .tint(.scene7Green)
+                        
+                        Button("Reject") {
+                            viewModel.rejectNameSuggestion(recordID: record.id)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.regular)
+                        .tint(.scene7Secondary)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.scene7Accent.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.scene7Accent.opacity(0.3), lineWidth: 1)
+                        )
+                )
+                .transition(.opacity.combined(with: .scale))
             }
 
             // --- Rename field and action buttons ---
@@ -570,7 +707,8 @@ struct RecordCard: View {
                 } label: {
                     Image(systemName: "arrow.uturn.backward.circle.fill")
                         .foregroundColor(.scene7Secondary)
-                        .opacity(0.7)
+                        .opacity(0.9)
+                        .font(.title3)
                 }
                 .buttonStyle(.plain)
                 .help("Reset to original filename")
@@ -677,6 +815,7 @@ struct RecordCard: View {
         )
         .shadow(color: Color.black.opacity(0.08), radius: 6, x: 0, y: 3)
         .animation(.easeInOut(duration: 0.2), value: record.status)
+        .animation(.easeInOut(duration: 0.3), value: record.nameSuggestion != nil)
     }
 
     func statusBadge(for status: Scene7ImageStatus) -> some View {

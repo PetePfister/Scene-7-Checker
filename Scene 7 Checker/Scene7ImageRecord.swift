@@ -8,6 +8,12 @@ enum Scene7ImageStatus: String {
     case error
 }
 
+struct NameSuggestion {
+    let originalName: String
+    let suggestedName: String
+    let reason: String
+}
+
 struct Scene7ImageRecord: Identifiable, Equatable {
     let id: UUID
     var localURL: URL
@@ -25,6 +31,7 @@ struct Scene7ImageRecord: Identifiable, Equatable {
     var availableDetailSlots: [String]?
     var detailSlotChecked: Bool
     var userMarkedOK: Bool
+    var nameSuggestion: NameSuggestion?
 
     init(
         id: UUID = UUID(),
@@ -41,7 +48,8 @@ struct Scene7ImageRecord: Identifiable, Equatable {
         usedDetailSlots: [String]? = nil,
         availableDetailSlots: [String]? = nil,
         detailSlotChecked: Bool = false,
-        userMarkedOK: Bool = false
+        userMarkedOK: Bool = false,
+        nameSuggestion: NameSuggestion? = nil
     ) {
         self.id = id
         self.localURL = localURL
@@ -58,5 +66,10 @@ struct Scene7ImageRecord: Identifiable, Equatable {
         self.availableDetailSlots = availableDetailSlots
         self.detailSlotChecked = detailSlotChecked
         self.userMarkedOK = userMarkedOK
+        self.nameSuggestion = nameSuggestion
+    }
+    
+    static func == (lhs: Scene7ImageRecord, rhs: Scene7ImageRecord) -> Bool {
+        return lhs.id == rhs.id
     }
 }
