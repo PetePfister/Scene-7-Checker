@@ -1,0 +1,1 @@
+This version allows drag and drop of files, selecting files, and checks urls properly. But is hideous.
