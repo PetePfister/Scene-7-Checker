@@ -1061,7 +1061,21 @@ class Scene7CheckerLogic: ObservableObject {
     // MARK: - CSV Export
 
     func generateCSV() -> String {
-        var lines: [String] = ["Filename,Proposed Name,Scene7 URL,Status,Duplicate,Naming Warning"]
+        func csvField(_ s: String) -> String {
+            let escaped = s.replacingOccurrences(of: "\"", with: "\"\"")
+            return "\"\(escaped)\""
+        }
+
+        let header = [
+            csvField("Filename"),
+            csvField("Proposed Name"),
+            csvField("Scene7 URL"),
+            csvField("Status"),
+            csvField("Duplicate"),
+            csvField("Naming Warning")
+        ].joined(separator: ",")
+
+        var lines: [String] = [header]
         for record in records {
             let statusStr: String
             switch record.status {
@@ -1069,11 +1083,6 @@ class Scene7CheckerLogic: ObservableObject {
             case .unique:     statusStr = "Not Loaded"
             case .notChecked: statusStr = "Not Checked"
             case .error:      statusStr = "Error"
-            }
-
-            func csvField(_ s: String) -> String {
-                let escaped = s.replacingOccurrences(of: "\"", with: "\"\"")
-                return "\"\(escaped)\""
             }
 
             let row = [
