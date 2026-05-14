@@ -97,6 +97,14 @@ struct Scene7CheckerUI: View {
                             secondaryButton: .cancel()
                         )
                     }
+
+                    Button {
+                        viewModel.exportCSV()
+                    } label: {
+                        Label("Export CSV", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(Scene7ButtonStyle(disabled: viewModel.records.isEmpty))
+                    .disabled(viewModel.records.isEmpty)
                     Spacer()
                 }
                 .padding(.horizontal)

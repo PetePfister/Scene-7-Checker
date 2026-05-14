@@ -488,6 +488,52 @@ class Scene7CheckerLogic: ObservableObject {
             self.errorMessage = "Failed to delete file: \(error.localizedDescription)"
         }
     }
+
+    // MARK: - CSV Export
+
+    func generateCSV() -> String {
+        var lines: [String] = ["Filename,Proposed Name,Scene7 URL,Status,Duplicate,Naming Warning"]
+        for record in records {
+            let statusStr: String
+            switch record.status {
+            case .exists:     statusStr = "Already Loaded"
+            case .unique:     statusStr = "Not Loaded"
+            case .notChecked: statusStr = "Not Checked"
+            case .error:      statusStr = "Error"
+            }
+            func csvField(_ s: String) -> String {
+                let escaped = s.replacingOccurrences(of: "\"", with: "\"\"")
+                return "\"\(escaped)\""
+            }
+            let row = [
+                csvField(record.filename),
+                csvField(record.proposedName),
+                csvField(record.scene7URL?.absoluteString ?? ""),
+                csvField(statusStr),
+                csvField(record.isDuplicate ? "Yes" : "No"),
+                csvField(record.namingWarning ?? "")
+            ].joined(separator: ",")
+            lines.append(row)
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    @MainActor
+    func exportCSV() {
+        let csvString = generateCSV()
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.commaSeparatedText]
+        panel.nameFieldStringValue = "Scene7-Results.csv"
+        panel.title = "Export CSV"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            do {
+                try csvString.write(to: url, atomically: true, encoding: .utf8)
+            } catch {
+                self.errorMessage = "Failed to save CSV: \(error.localizedDescription)"
+            }
+        }
+    }
 }
 
 // Thread-Safe Collector for Drag & Drop (Swift 6)
