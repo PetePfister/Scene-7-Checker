@@ -129,6 +129,14 @@ struct Scene7CheckerUI: View {
                     }
 
                     Button {
+                        viewModel.exportCSV()
+                    } label: {
+                        Label("Export CSV", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(Scene7ButtonStyle(color: .scene7Green, disabled: viewModel.records.isEmpty))
+                    .disabled(viewModel.records.isEmpty)
+
+                    Button {
                         batchRenamePreview = viewModel.getBatchRenamePreview()
                         if batchRenamePreview.count > 0 {
                             showBatchRenameConfirmation = true
