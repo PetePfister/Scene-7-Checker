@@ -1102,7 +1102,11 @@ class Scene7CheckerLogic: ObservableObject {
     func exportCSV() {
         let csvString = generateCSV()
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.commaSeparatedText]
+        if #available(macOS 11.0, *) {
+            panel.allowedContentTypes = [.commaSeparatedText]
+        } else {
+            panel.allowedFileTypes = ["csv"]
+        }
         panel.nameFieldStringValue = "Scene7-Results.csv"
         panel.title = "Export CSV"
         panel.begin { response in
